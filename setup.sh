@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cp hosts.ini.example host.ini
+cp hosts.ini.example hosts.ini
 
 # Directory containing the files
 dir="vars"
