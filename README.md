@@ -18,6 +18,7 @@ sudo usermod -aG sudo ansible_user
 
 ## Running Playbook
 
+- `vim vars/setup_mysql.yml`
 - `ansible-playbook -i hosts.ini playbook/setup_mysql.yml --limit db-mysql-0` 
 
 ## pro tips
