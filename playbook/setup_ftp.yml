@@ -1,0 +1,101 @@
+---
+- name: Setup SFTP Server
+  hosts: ftp_servers
+  become: yes
+  vars:
+    sftp_port: 21140
+    backup_dir: /var/backup/sftp
+    sftp_user_1: user
+    sftp_user_2: user2  # Second user
+    sftp_directory: /ftp/  # Updated SFTP directory
+    public_key_path_1: '../ssh-keys/user-ftp.pub'  # Public key path for the first user
+    public_key_path_2: '../ssh-keys/user2-ftp.pub'  # Public key path for the second user
+    timestamp: "{{ ansible_date_time.iso8601_basic }}"
+
+  tasks:
+    - name: Install OpenSSH server
+      apt:
+        name: openssh-server
+        state: present
+        update_cache: yes
+
+    - name: Create backup directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create SFTP directory
+      file:
+        path: "{{ sftp_directory }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Configure SSHD for SFTP
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        block: |
+          Port {{ sftp_port }}  # Set the SFTP port
+          Match User {{ sftp_user_1 }}
+            ForceCommand internal-sftp
+            PasswordAuthentication no
+            ChrootDirectory {{ sftp_directory }}
+            AllowTcpForwarding no
+            X11Forwarding no
+
+          Match User {{ sftp_user_2 }}
+            ForceCommand internal-sftp
+            PasswordAuthentication no
+            ChrootDirectory {{ sftp_directory }}
+            AllowTcpForwarding no
+            X11Forwarding no
+
+    - name: Ensure the SFTP users exist
+      user:
+        name: "{{ item }}"
+        shell: /usr/sbin/nologin
+        state: present
+      loop:
+        - "{{ sftp_user_1 }}"
+        - "{{ sftp_user_2 }}"
+
+    - name: Add SSH public key for the first SFTP user
+      authorized_key:
+        user: "{{ sftp_user_1 }}"
+        state: present
+        key: "{{ lookup('file', public_key_path_1) }}"  # Use the variable for the public key path
+
+    - name: Add SSH public key for the second SFTP user
+      authorized_key:
+        user: "{{ sftp_user_2 }}"
+        state: present
+        key: "{{ lookup('file', public_key_path_2) }}"  # Use the variable for the public key path
+
+    - name: Set permissions for SFTP user home directory
+      file:
+        path: "{{ sftp_directory }}"
+        state: directory
+        owner: "{{ sftp_user_1 }}"
+        group: "{{ sftp_user_1 }}"
+        mode: '0700'
+
+    - name: Set permissions for Chroot directory
+      file:
+        path: /ftp
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Restart SSH service
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Backup configuration file with timestamp
+      copy:
+        src: /etc/ssh/sshd_config
+        dest: "{{ backup_dir }}/sshd_config_backup_{{ timestamp }}.bak"
+        remote_src: yes

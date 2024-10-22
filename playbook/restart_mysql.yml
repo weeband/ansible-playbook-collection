@@ -1,0 +1,12 @@
+---
+- name: Restart MySQL on apollo master
+  hosts: mysql_database
+  become: yes
+  tasks:
+    - name: Execute uptime command
+      command: service mysql restart
+      register: output
+
+    - name: Show output
+      debug:
+        msg: "{{ output.stdout }}"

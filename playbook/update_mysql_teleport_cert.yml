@@ -1,0 +1,24 @@
+---
+- name: Restart MySQL on apollo master
+  hosts: mysql_database
+  become: yes
+  tasks:
+    - name: Find files that match the pattern
+      find:
+        paths: /mnt/cert-teleport
+        patterns: "server.*"
+      register: found_files
+    - name: Copy the found files to the remote server
+      copy:
+        src: "{{ item.path }}"
+        dest: /mnt/pxc/{{ item.path | basename }}
+        mode: '0600'
+        owner: mysql
+        group: mysql
+      with_items: "{{ found_files.files }}"
+    - name: Restart mysql to apply changes
+      command: service mysql restart
+      register: output
+    - name: Show output
+      debug:
+        msg: "{{ output.stdout }}"
